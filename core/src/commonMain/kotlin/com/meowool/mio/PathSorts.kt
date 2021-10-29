@@ -3,7 +3,7 @@
 package com.meowool.mio
 
 /**
- * Used to [Path] lists sorting.
+ * Used to [IPath] lists sorting.
  *
  * @see sorted
  * @see sortedBy
@@ -13,7 +13,7 @@ interface PathSortStrategy {
   /**
    * Add a default comparison rule of path-sites.
    *
-   * @see Path.compareTo
+   * @see IPath.compareTo
    */
   fun default()
 
@@ -22,7 +22,7 @@ interface PathSortStrategy {
    *
    * @param ignoreCase whether the names sort result is case-sensitive.
    *
-   * @see Path.name
+   * @see IPath.name
    */
   fun name(ignoreCase: Boolean = true)
 
@@ -31,7 +31,7 @@ interface PathSortStrategy {
    *
    * @param recursively when the compare to directory, whether to compare all its children.
    *
-   * @see Path.name
+   * @see IPath.name
    */
   fun size(recursively: Boolean = false)
 
@@ -40,35 +40,35 @@ interface PathSortStrategy {
    *
    * @param ignoreCase whether the extensions sort result is case-sensitive.
    *
-   * @see Path.extension
+   * @see IFile.extension
    */
   fun extension(ignoreCase: Boolean)
 
   /**
    * Add the comparison rule of the files/directories last modified time.
    *
-   * @see Path.lastModifiedTime
+   * @see IPath.lastModifiedTime
    */
   fun lastModified()
 
   /**
    * Add a comparison rule to allow files to be displayed prior to directories.
    *
-   * @see Path.isRegularFile
+   * @see IPath.isRegularFile
    */
   fun filesFirst()
 
   /**
    * Add a comparison rule to allow directories to be displayed prior to files.
    *
-   * @see Path.isDirectory
+   * @see IPath.isDirectory
    */
   fun directoriesFirst()
 
   /**
    * Add the comparison rule to make hidden files or directories display first.
    *
-   * @see Path.isHidden
+   * @see IPath.isHidden
    */
   fun hiddenFirst()
 
@@ -77,7 +77,7 @@ interface PathSortStrategy {
    *
    * @param comparator how to compare two path-sites for sort.
    */
-  fun custom(comparator: Comparator<Path>)
+  fun custom(comparator: Comparator<IPath>)
 
   /**
    * Add reverse sorting rule.
@@ -87,7 +87,7 @@ interface PathSortStrategy {
   /**
    * Returns the comparator about this strategy.
    */
-  fun get(): Comparator<Path>
+  fun get(): Comparator<IPath>
 }
 
 /**
@@ -95,7 +95,7 @@ interface PathSortStrategy {
  */
 @PublishedApi
 internal class DefaultPathSortStrategy : PathSortStrategy {
-  private var comparator = compareBy<Path> { 0 }
+  private var comparator = compareBy<IPath> { 0 }
 
   override fun default() {
     comparator = comparator.thenBy { it }
@@ -108,32 +108,34 @@ internal class DefaultPathSortStrategy : PathSortStrategy {
   }
 
   override fun size(recursively: Boolean) {
-    comparator = compareBy<Path> { if (recursively) it.totalSize else it.size }.then(comparator)
+    comparator = compareBy<IPath> {
+      if (recursively && it is Directory) it.totalSize else it.size
+    }.then(comparator)
   }
 
   override fun extension(ignoreCase: Boolean) {
-    comparator = Comparator<Path> { o1, o2 ->
-      o1.extension.compareTo(o2.extension, ignoreCase)
+    comparator = Comparator<IPath> { o1, o2 ->
+      if (o1 is IFile && o2 is IFile) o1.extension.compareTo(o2.extension, ignoreCase) else 0
     }.then(comparator)
   }
 
   override fun lastModified() {
-    comparator = compareBy<Path> { it.lastModifiedTime }.then(comparator)
+    comparator = compareBy<IPath> { it.lastModifiedTime }.then(comparator)
   }
 
   override fun filesFirst() {
-    comparator = compareByDescending<Path> { it.isRegularFile }.then(comparator)
+    comparator = compareByDescending<IPath> { it.isRegularFile }.then(comparator)
   }
 
   override fun directoriesFirst() {
-    comparator = compareByDescending<Path> { it.isDirectory }.then(comparator)
+    comparator = compareByDescending<IPath> { it.isDirectory }.then(comparator)
   }
 
   override fun hiddenFirst() {
-    comparator = compareByDescending<Path> { it.isHidden }.then(comparator)
+    comparator = compareByDescending<IPath> { it.isHidden }.then(comparator)
   }
 
-  override fun custom(comparator: Comparator<Path>) {
+  override fun custom(comparator: Comparator<IPath>) {
     this.comparator = this.comparator.then(comparator)
   }
 
@@ -141,7 +143,7 @@ internal class DefaultPathSortStrategy : PathSortStrategy {
     comparator = comparator.reversed()
   }
 
-  override fun get(): Comparator<Path> = comparator
+  override fun get(): Comparator<IPath> = comparator
 }
 
 
@@ -151,7 +153,7 @@ internal class DefaultPathSortStrategy : PathSortStrategy {
  * @param strategy the instance of sort strategy.
  * @param declaration used to declare the [strategy].
  */
-inline fun Iterable<Path>.sortedBy(
+inline fun Iterable<IPath>.sortedBy(
   strategy: PathSortStrategy = DefaultPathSortStrategy(),
   declaration: PathSortStrategy.() -> Unit,
 ) = this.sortedWith(strategy.apply(declaration))
@@ -159,14 +161,14 @@ inline fun Iterable<Path>.sortedBy(
 /**
  * Sort this [Iterable] of path-sites by [strategy].
  */
-fun Iterable<Path>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
+fun Iterable<IPath>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
 
 /**
  * Sort this [Iterable] of path-sites using the default strategy.
  *
  * @see DefaultPathSortStrategy
  */
-fun Iterable<Path>.sorted() = this.sortedWith(DefaultPathSortStrategy())
+fun Iterable<IPath>.sorted() = this.sortedWith(DefaultPathSortStrategy())
 
 /**
  * According by a fluent DSL [declaration] to sort this [Array] of path-sites.
@@ -174,7 +176,7 @@ fun Iterable<Path>.sorted() = this.sortedWith(DefaultPathSortStrategy())
  * @param strategy the instance of sort strategy.
  * @param declaration used to declare the [strategy].
  */
-fun Array<Path>.sortedBy(
+fun Array<IPath>.sortedBy(
   strategy: PathSortStrategy = DefaultPathSortStrategy(),
   declaration: PathSortStrategy.() -> Unit,
 ) = this.sortedWith(strategy.apply(declaration))
@@ -182,14 +184,14 @@ fun Array<Path>.sortedBy(
 /**
  * Sort this [Array] of path-sites by [strategy].
  */
-fun Array<Path>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
+fun Array<IPath>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
 
 /**
  * Sort this [Array] of path-sites using the default strategy.
  *
  * @see DefaultPathSortStrategy
  */
-fun Array<Path>.sorted() = this.sortedWith(DefaultPathSortStrategy())
+fun Array<IPath>.sorted() = this.sortedWith(DefaultPathSortStrategy())
 
 /**
  * According by a fluent DSL [declaration] to sort this [Sequence] of path-sites.
@@ -197,7 +199,7 @@ fun Array<Path>.sorted() = this.sortedWith(DefaultPathSortStrategy())
  * @param strategy the instance of sort strategy.
  * @param declaration used to declare the [strategy].
  */
-fun Sequence<Path>.sortedBy(
+fun Sequence<IPath>.sortedBy(
   strategy: PathSortStrategy = DefaultPathSortStrategy(),
   declaration: PathSortStrategy.() -> Unit,
 ) = this.sortedWith(strategy.apply(declaration))
@@ -205,11 +207,11 @@ fun Sequence<Path>.sortedBy(
 /**
  * Sort this [Sequence] of path-sites by [strategy].
  */
-fun Sequence<Path>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
+fun Sequence<IPath>.sortedWith(strategy: PathSortStrategy) = this.sortedWith(strategy.get())
 
 /**
  * Sort this [Sequence] of path-sites using the default strategy.
  *
  * @see DefaultPathSortStrategy
  */
-fun Sequence<Path>.sorted() = this.sortedWith(DefaultPathSortStrategy())
+fun Sequence<IPath>.sorted() = this.sortedWith(DefaultPathSortStrategy())

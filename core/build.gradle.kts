@@ -6,11 +6,11 @@ commonTarget {
   main.dependencies {
     apiOf(
       "com.meowool.toolkit:sweekt:_",
-      Libs.KotlinX.Coroutines.Core
+      Libs.KotlinX.Coroutines.Core,
     )
   }
   test.dependencies {
-    implementation(Libs.Kotest.Runner.Junit5.Jvm)
+    implementationOf(Libs.Kotest.Runner.Junit5.Jvm)
   }
 }
 
@@ -29,5 +29,8 @@ commonTarget {
 jvmTarget {
   configureTestRunTask {
     useJUnitPlatform()
+  }
+  main.dependencies {
+    implementation("com.github.ben-manes.caffeine:caffeine:_")
   }
 }

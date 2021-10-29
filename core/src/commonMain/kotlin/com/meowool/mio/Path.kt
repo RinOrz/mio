@@ -1,104 +1,173 @@
-@file:Suppress("FunctionName", "NOTHING_TO_INLINE")
+@file:Suppress("FunctionName", "NOTHING_TO_INLINE", "NO_ACTUAL_FOR_EXPECT")
 
 package com.meowool.mio
 
-import kotlinx.coroutines.flow.Flow
+import com.meowool.sweekt.toReadableSize
 
 /**
- * An object representing the file system and its path.
+ * An object representing the path.
  *
+ * [Implement reference java new io](https://github.com/openjdk/jdk/blob/master/src/java.base/share/classes/java/nio/file/Path.java)
+ * [Implement reference multiplatform okio](https://github.com/square/okio/blob/master/okio/src/commonMain/kotlin/okio/Path.kt)
+ * [Implement reference python os.path](https://github.com/python/cpython/blob/3.9/Lib/posixpath.py)
+ *
+ * @param Self represents the return type of members (file, directory, etc...)
  * @author 凛 (https://github.com/RinOrz)
  */
-interface Path : CharSequence, Comparable<Path> {
+interface IPath<Self: IPath<Self>> : Comparable<Self> {
 
   /**
-   * Returns the absolute path site of this file/directory.
+   * Returns the absolute path of this file or directory.
    */
-  val absolute: Path
+  val absolute: Self
 
   /**
-   * Returns an absolute path site represent the real path of this file/directory located. If this
+   * Returns the string of absolute path of this file or directory.
+   *
+   * @see absolute
+   */
+  val absoluteString: String
+
+  /**
+   * Returns an absolute path represent the real path of this file or directory located. If this
    * is a symbolic link, it will be resolved to the final target.
    */
-  val real: Path
+  val real: Self
 
   /**
-   * The canonical path site of this file/directory.
+   * Returns the string of an absolute path represent the real path of this file or directory
+   * located. If this is a symbolic link, it will be resolved to the final target.
+   *
+   * @see real
    */
-  val canonical: Path
+  val realString: String get() = real.toString()
 
   /**
-   * Returns true if the path is absolute.
-   * 
-   * An absolute path is complete in that it doesn't need to be combined with other path 
-   * information in order to locate a file/directory.
+   * Returns the normalized path of this path.
+   *
+   * The following steps may occur:
+   *   1. Converts all separators to system flavor
+   *   2. Converts user home symbol (`~`) to real path of user home directory
+   *   3. Removes the duplicate slash like `//` but will protect UNC path
+   *   4. Removes the all useless single dot like `./`
+   *   5. Resolves the all parent paths symbols like `..`
+   *
+   * For example:
+   * ```
+   * `/foo///.`              ->   `/foo`
+   * `/foo/./`               ->   `/foo`
+   * `/foo/../bar`           ->   `/bar`
+   * `/foo/../bar/`          ->   `/bar`
+   * `/foo/../bar/../baz`    ->   `/baz`
+   * `//foo//./bar`          ->   `/foo/bar`
+   * `/../..`                ->   `/`
+   * `foo/bar/..`            ->   `foo`
+   * `../foo/`               ->   `../foo/`
+   * `foo/../../bar/`        ->   `../bar/`
+   * `foo/../bar`            ->   `bar`
+   * `//server/foo/..//bar`  ->   `//server/bar`
+   * `C:\..\..\bar`          ->   `C:\bar`
+   * `C:..\bar`              ->   `C:..\bar`
+   * `~`                     ->   `home/user/`
+   * `~/foo/../bar/`         ->   `home/user/bar`
+   * `~/../bar`              ->   `home/user/bar`
+   * ```
+   *
+   * @see normalizedString
    */
-  val isAbsolute: Boolean
+  val normalized: Self
 
   /**
-   * The name of this file/directory.
+   * Returns the string of normalized path of this path.
+   *
+   * The following steps may occur:
+   *   1. Converts all separators to system flavor
+   *   2. Converts user home symbol (`~`) to real path of user home directory
+   *   3. Removes the duplicate slash like `//` but will protect UNC path
+   *   4. Removes the all useless single dot like `./`
+   *   5. Resolves the all parent paths symbols like `..`
+   *
+   * For example:
+   * ```
+   * `/foo///.`              ->   `/foo`
+   * `/foo/./`               ->   `/foo`
+   * `/foo/../bar`           ->   `/bar`
+   * `/foo/../bar/`          ->   `/bar`
+   * `/foo/../bar/../baz`    ->   `/baz`
+   * `//foo//./bar`          ->   `/foo/bar`
+   * `/../..`                ->   `/`
+   * `foo/bar/..`            ->   `foo`
+   * `../foo/`               ->   `../foo/`
+   * `foo/../../bar/`        ->   `../bar/`
+   * `foo/../bar`            ->   `bar`
+   * `//server/foo/..//bar`  ->   `//server/bar`
+   * `C:\..\..\bar`          ->   `C:\bar`
+   * `C:..\bar`              ->   `C:..\bar`
+   * `~`                     ->   `home/user/`
+   * `~/foo/../bar/`         ->   `home/user/bar`
+   * `~/../bar`              ->   `home/user/bar`
+   * ```
+   *
+   * @see normalized
+   */
+  val normalizedString: String
+
+  /**
+   * If this path is a symbolic link, returns the linked target, otherwise return itself.
+   */
+  val symbolicLink: Self
+
+  /**
+   * The name of the file or directory of this path, which is the last element of [IPath.split].
    */
   var name: String
 
   /**
-   * The extension of this file (not including the dot). If there is only one dot and it is
-   * first in the name, the extension will be empty.
+   * Usually represents the volume label of the Windows path, for example, the volume label on the
+   * `C:\\Windows` path is `C:`, if this path is not a Windows path, or it does not have a volume
+   * label, null will be returned.
    *
-   * For example getting,
-   * ```
-   * foo.txt     -> "txt"
-   * .aaa.jpg    -> "jpg"
-   * .xyz        -> ""
-   * ```
-   *
-   * For example setting,
-   * ```
-   * foo.txt     -- zip    -> foo.zip
-   * .aaa.jpg    -- png    -> .aaa.zip
-   * .xyz        -- .txt   -> .xyz.txt
-   * ```
+   * Note that paths that start with a volume label are not necessarily absolute paths. For
+   * example, the path `C:notepad.exe` is relative to whatever the current working directory is on
+   * the `C:` drive.
    */
-  var extension: String
+  val volumeLabel: String?
 
   /**
-   * The extension of this file (including the dot). If there is only one dot and it is first in
-   * the name, the extension will be empty.
+   * The parent directory of this path, if the path has no parent directory then it is `null`.
    *
-   * For example,
+   * For example:
    * ```
-   * foo.txt     -> ".txt"
-   * .aaa.jpg    -> ".jpg"
-   * .xyz        -> ""
+   * "foo/bar"        -> `foo`
+   * "/foo"           -> `/`
+   * "/", "../", "."  -> `null`
+   *
+   * ## Windows path.
+   * "C:"             -> `null`
+   * "C:\\"           -> `null`
+   * "C:\\Windows"    -> `C:\\`
+   *
+   * ## UNC path has no parent.
+   * "\\\\softer"     -> `null`
+   * "//softer"       -> `null`
+   *
+   * ## Relative path without parent, need to get `absolute` path first if to get the real parent.
+   * "file.txt"       -> `null`
+   *
+   * ## The parent property will not resolve any `..` in relative paths.
+   * "foo/../../"     -> "foo/../"
    * ```
    *
-   * @see extension
+   * @see parentString
    */
-  val extensionWithDot: String
+  val parent: Directory?
 
   /**
-   * The file's name without an extension. If there is only one dot and it is first in the
-   * [name], it will be all of [name].
+   * The parent path string of this path, if the path has no parent directory then it is `null`.
    *
-   * For example getting,
-   * ```
-   * foo.txt     -> foo
-   * .aaa.jpg    -> .aaa
-   * .xyz        -> .xyz
-   * ```
-   *
-   * For example setting,
-   * ```
-   * foo.txt     -- bar   -> bar.txt
-   * .aaa.jpg    -- bbb   -> bbb.zip
-   * .xyz        -- ccc   -> ccc
-   * ```
+   * @see parent
    */
-  var nameWithoutExtension: String
-
-  /**
-   * The parent path site of this file/directory.
-   */
-  var parent: Path
+  val parentString: String?
 
   /**
    * The time in milliseconds of last modification.
@@ -128,421 +197,597 @@ interface Path : CharSequence, Comparable<Path> {
   var creationTime: Long
 
   /**
-   * The file whether is readable.
+   * Returns `true` if there is a root separator on this path.
+   */
+  val hasRoot: Boolean
+
+  /**
+   * Returns `true` if this path has no parent path, represents that this is a root path.
+   */
+  val isRoot: Boolean
+
+  /**
+   * Returns `true` if the path is absolute.
+   *
+   * An absolute path is complete in that it doesn't need to be combined with other path
+   * information in order to locate a file or directory.
+   */
+  val isAbsolute: Boolean get() = hasRoot
+
+  /**
+   * Returns `true` if the path is relative.
+   */
+  val isRelative: Boolean get() = hasRoot.not()
+
+  /**
+   * This path whether is readable.
    */
   var isReadable: Boolean
 
   /**
-   * The file whether is writable.
+   * This path whether is writable.
    */
   var isWritable: Boolean
 
   /**
-   * The file whether is executable.
+   * This path whether is executable.
    */
   var isExecutable: Boolean
 
   /**
-   * This is whether or not a hidden file/directory.
+   * This is whether a hidden path.
    *
    * The exact definition of hidden is platform or provider dependent.
-   * On UNIX for example a file/directory is considered to be hidden if its name begins with a dot.
-   * On Windows a file is considered hidden if it isn't a directory and the [isHidden] attribute is set.
+   * On UNIX for example is considered to be hidden if its name begins with a dot.
+   * On Windows is considered hidden if it isn't a directory and the [isHidden] attribute is set.
    */
   var isHidden: Boolean
 
   /**
-   * Returns `true` if the file is a regular file with opaque content.
+   * Returns `true` if this path exists and is a regular file with opaque content.
    */
   val isRegularFile: Boolean
 
   /**
-   * Returns `true` if the file is a directory.
+   * Returns `true` if this path exists and is a directory.
    */
   val isDirectory: Boolean
 
   /**
-   * Returns `true` if the file is a symbolic link.
+   * Returns `true` if this path exists and is a symbolic link.
    */
   val isSymbolicLink: Boolean
 
   /**
-   * Returns `true` if the file something other than a regular file, directory or symbolic link.
+   * Returns `true` if this path exists and something other than a regular file, directory or
+   * symbolic link.
    */
   val isOther: Boolean
 
   /**
-   * Returns the size of the file (in bytes). The size may differ from the actual size on the file
-   * system due to compression, support for sparse files, or other reasons. The size of files that
-   * are not [isRegularFile] files is implementation specific and therefore unspecified.
+   * The size of this path (in bytes).
+   *
+   * If changes the number of bytes in the file to [size] and the new size is smaller. This will
+   * remove bytes from the end. It will add empty bytes to the end if it is larger. If the path is
+   * not [isRegularFile], the changes will fail and nothing will happen, because the size of
+   * non-file path is system-specific implemented, so cannot change it.
+   *
+   * Note that the size may differ from the actual size on the file system due to compression,
+   * support for sparse files, or other reasons.
    */
-  val size: Long
+  var size: Long
 
   /**
    * Returns a readable size string.
    *
    * @see size
-   * @see com.meowool.toolkit.sweekt.toReadableSize for more details
+   * @see com.meowool.sweekt.toReadableSize for more details
    */
-  val readableSize: String
+  val readableSize: String get() = size.toReadableSize()
 
   /**
-   * Return an object that uniquely identifies the given file, or null.
-   */
-  val key: Any?
-
-  /**
-   * Probes the content type (MIME type) of this site.
+   * Probes the content type (MIME type) of this path.
    *
    * Note that this property is not necessarily accurate, even empty. If you want to get very
-   * accurate results, you can use other content detection libraries such as [Apache-Tika](https://tika.apache.org/).
+   * accurate results, you can use other content detection libraries such as
+   * [Apache-Tika](https://tika.apache.org/).
    */
   val contentType: String
 
   /**
-   * Creates a empty file, if the file already exists, nothing will happen. The check for
-   * the existence of the file and the creation of the new file if it does not exist are a single
-   * operation that is atomic with respect to all other filesystem activities that might affect
-   * the directory.
-   *
-   * @see createStrictFile
+   * Returns an object that uniquely identifies the given path.
    */
-  fun createFile(): Path
+  val key: Any
 
   /**
-   * Creates a empty file, failing if the file already exists. The check for the existence of the file
-   * and the creation of the new file if it does not exist are a single operation that is atomic with
-   * respect to all other filesystem activities that might affect the directory.
-   *
-   * @throws PathAlreadyExistsException if a file of that name already exists
-   * @see createFile
-   */
-  @Throws(PathAlreadyExistsException::class)
-  fun createStrictFile(): Path
-
-  /**
-   * Creates a directory, if the directory already exists, nothing will happen, but note that if it is
-   * not a directory, an [PathAlreadyExistsException] will be thrown.
-   *
-   * @see createStrictDirectory
-   */
-  @Throws(PathAlreadyExistsException::class)
-  fun createDirectory(): Path
-
-  /**
-   * Creates a directory, failing if the directory already exists.
-   *
-   * @see createDirectory
-   */
-  @Throws(PathAlreadyExistsException::class)
-  fun createStrictDirectory(): Path
-
-  /**
-   * Creates a directory, including any necessary but nonexistent parent directories.
-   */
-  fun createDirectories(): Path
-
-  /**
-   * Deletes a path file safely. If the file is a symbolic link, then the symbolic link itself, not
-   * the final target of the link, is deleted, if you want to change this behavior, set
-   * [followLinks] to `true`, this will remove the target of the link.
-   *
-   * If the path is a directory then the directory must be empty, otherwise the deletion fails.
-   * If you want to delete the directory and all its children, set [recursively] to `true`.
-   *
-   * @param recursively if this path is a directory, deletes it and all its children.
-   * @param followLinks if the path is a symbolic link and the value is `true`, then delete the
-   * link final target, otherwise delete the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from deleting.
-   * @param onError what should be done when an error occurs when deleting this path.
-   *
-   * @return if the deletion fails, it returns `false`.
-   *
-   * @see deleteStrictly
-   */
-  fun delete(
-    recursively: Boolean = false,
-    followLinks: Boolean = false,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> DeleteErrorSolution = { _, throwable -> throw throwable }
-  ): Boolean
-
-  /**
-   * Deletes a path file strictly. If the file is a symbolic link, then the symbolic link itself,
-   * not the final target of the link, is deleted, if you want to change this behavior, set
-   * [followLinks] to `true`, this will remove the target of the link.
-   *
-   * If the path is a directory then the directory must be empty, otherwise throw the
-   * [DirectoryNotEmptyException].
-   * If you want to delete the directory and all its children, set [recursively] to `true`.
-   *
-   * @param recursively if this path is a directory, deletes it and all its children.
-   * @param followLinks if the path is a symbolic link and the value is `true`, then delete the
-   * link final target, otherwise delete the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from deleting.
-   * @param onError what should be done when an error occurs when deleting this path.
-   *
-   * @throws DirectoryNotEmptyException if the path is a non-empty directory, and [recursively]
-   * is set to `false`, it cannot be deleted.
-   *
-   * @see delete
-   */
-  @Throws(NoSuchFileException::class, DirectoryNotEmptyException::class)
-  fun deleteStrictly(
-    recursively: Boolean = false,
-    followLinks: Boolean = false,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> DeleteErrorSolution = { _, throwable -> throw throwable }
-  )
-
-  /**
-   * Returns `true` if this file/directory is empty.
-   *
-   * If this path is a file, it means that the file has no content.
-   * If this path is a directory, it means that there are no files in this directory.
-   */
-  fun isEmpty(): Boolean
-
-  /**
-   * Returns `true` if this file/directory is not empty.
-   *
-   * If this path is a file, it means that the file has content.
-   * If this path is a directory, it means that there are files in this directory.
-   */
-  fun isNotEmpty(): Boolean
-
-  /**
-   * Returns `true` if this file/directory is exists.
+   * Returns `true` if the file or directory of this path is exists.
    *
    * @param followLinks if this is a symbolic link, whether to ensure the final real target of link
-   * is exists.
+   *   is exists.
    *
    * @see notExists
    */
   fun exists(followLinks: Boolean = true): Boolean
 
   /**
-   * Returns `true` if this file/directory does not exist.
+   * Returns `true` if the file or directory of this path does not exist.
    *
    * @param followLinks if this is a symbolic link, whether to ensure the final real target of link
-   * is not exists.
+   *   is not exists.
    *
    * @see exists
    */
   fun notExists(followLinks: Boolean = true): Boolean
 
   /**
-   * Return all file entries in the directory.
+   * Joins a [path] to this path.
    *
-   * @param recursively represents whether you need to return a recursive list. this is consistent
-   * with the [descendants] (1 or Int.MAX_VALUE) behavior.
+   * If the given [path] has a root, returns it's directly.
+   *
+   * This is best explained by analogy. Imagine you're in a command prompt and this path is your
+   * current command line path. You type "cd [path]". The path after joined is the command line
+   * path you'd end up in.
+   *
+   * For example:
+   * ```
+   * Path("foo/bar") / "gav"           ->  `foo/bar/gav`
+   * Path("foo/bar") / "/baz"          -> `/baz`
+   * Path("/foo") / "/"                -> `/`
+   *
+   * ## Windows path.
+   * Path("C:") / "/foo"               -> `/foo`
+   * Path("C:\\") / "Windows"          -> `D:\\Windows`
+   *
+   * ## UNC path.
+   * Path("//softer") / "foo"          -> `\\\\`
+   *
+   * ## User home path symbol.
+   * Path("//softer") / "~"            -> `~/foo`
+   * ```
+   *
+   * @return the path after joined
    */
-  fun children(recursively: Boolean = false): Flow<Path>
+  operator fun div(path: Path): Path
 
   /**
-   * Return all file entries in this directory by traversing the file tree.
+   * Joins a [path] to this path.
    *
-   * Similar to [walk], but does not include itself.
+   * If the given [path] has a root, returns it's directly.
    *
-   * @param maxDepth the maximum number of directory levels to traverse. when the value
-   * is [Int.MAX_VALUE], recursively traverse all sub directories.
+   * This is best explained by analogy. Imagine you're in a command prompt and this path is your
+   * current command line path. You type "cd [path]". The path after joined is the command line
+   * path you'd end up in.
+   *
+   * For example:
+   * ```
+   * Path("foo/bar") / "gav"           ->  `foo/bar/gav`
+   * Path("foo/bar") / "/baz"          -> `/baz`
+   * Path("/foo") / "/"                -> `/`
+   *
+   * ## Windows path.
+   * Path("C:") / "/foo"               -> `/foo`
+   * Path("C:\\") / "Windows"          -> `D:\\Windows`
+   *
+   * ## UNC path.
+   * Path("//softer") / "foo"          -> `\\\\`
+   *
+   * ## User home path symbol.
+   * Path("//softer") / "~"            -> `~/foo`
+   * ```
+   *
+   * @return the path after joined
    */
-  fun descendants(maxDepth: Int = Int.MAX_VALUE): Flow<Path>
+  operator fun div(path: CharSequence): Path
 
   /**
-   * Return all file entries by walking the file tree.
+   * Joins a [path] to this path.
    *
-   * Similar to [descendants], but include itself.
-   *
-   * @param maxDepth the maximum number of directory levels to walk. when the value
-   * is [Int.MAX_VALUE], walk all directories.
+   * @return the path after joined
+   * @see div for more details.
    */
-  fun walk(maxDepth: Int = Int.MAX_VALUE): Flow<Path>
+  fun join(path: Path): Path = div(path)
 
   /**
-   * Copies this path to the given [target] path.
+   * Joins a [path] to this path.
    *
-   * If this path is a directory, it is copied without its content, i.e. an empty [target]
-   * directory is created.
-   * If you want to copied directory including its contents, set [recursively] to `true`.
-   *
-   * @param overwrite whether to overwrite when the target file already exists.
-   * @param recursively if this path is a directory, copy it and all its children to destination.
-   * @param keepAttributes copied all the attributes of this path to the target file.
-   * @param followLinks if the file to be copied is a symbolic link and the value is `true`, then
-   * copy the link target, otherwise copy the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from copying.
-   * @param onError what should be done when an error occurs when copying this path.
-   *
-   * @return the path to the [target]
-   *
-   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
-   * argument is set to `false`.
-   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
-   * argument is set to `false`, the copy fails, the target folder must be emptied first.
+   * @return the path after joined
+   * @see div for more details.
    */
-  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
-  fun copyTo(
-    target: Path,
-    overwrite: Boolean = false,
-    recursively: Boolean = false,
-    keepAttributes: Boolean = false,
-    followLinks: Boolean = true,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> CopyErrorSolution = { _, throwable -> throw throwable }
-  ): Path
+  fun join(path: CharSequence): Path = div(path)
 
   /**
-   * Copies this path into the given [targetDirectory].
+   * Joins a sequence of [paths] to this path.
    *
-   * If this path is a directory, it is copied without its content, i.e. an empty directory is
-   * created to [targetDirectory].
-   * If you want to copied directory including its contents, set [recursively] to `true`.
+   * If there has a root on the given sequence of [paths], the path where the root appears last is
+   * taken as the beginning of the path.
    *
-   * @param overwrite whether to overwrite when the target file already exists.
-   * @param recursively if this path is a directory, copy it and all its children into destination.
-   * @param keepAttributes copied all the attributes of this path to the target file.
-   * @param followLinks if the file to be copied is a symbolic link and the value is `true`, then
-   * copy the link target, otherwise copy the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from copying.
-   * @param onError what should be done when an error occurs when copying this path or this
-   * directory sub files.
+   * This is best explained by analogy. Imagine you're in a command prompt and this path is your
+   * current command line path. You type "cd [paths]". The path after joined is the command line
+   * path you'd end up in.
    *
-   * @return the path to the [targetDirectory]
+   * For example:
+   * ```
+   * Path("foo/bar").join("gav")           ->  `foo/bar/gav`
+   * Path("foo/bar").join("baz", "/gav")   -> `/gav`
+   * Path("/foo").join("/")                -> `/`
    *
-   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
-   * argument is set to `false`.
-   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
-   * argument is set to `true`, the copy fails, the target folder must be emptied first.
+   * ## Windows path.
+   * Path("C:").join("foo", "bar")         -> `C:foo/bar`
+   * Path("C:\\").join("Windows", "D:")    -> `D:`
+   *
+   * ## UNC path.
+   * Path("//softer").join("foo", "\\\\")  -> `\\\\`
+   *
+   * ## User home path symbol.
+   * Path("//softer").join("~", "foo")     -> `~/foo`
+   * ```
+   *
+   * @return the path after joined
    */
-  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
-  fun copyInto(
-    targetDirectory: Path,
-    overwrite: Boolean = false,
-    recursively: Boolean = false,
-    keepAttributes: Boolean = false,
-    followLinks: Boolean = true,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> CopyErrorSolution = { _, throwable -> throw throwable }
-  ): Path
+  fun join(vararg paths: Path): Path
 
   /**
-   * Moves this path to the given [target] path.
+   * Joins a sequence of [paths] to this path.
    *
-   * If this path is a directory, it is moved without its content, i.e. an empty [target]
-   * directory is created. If you want to moved directory including its contents, use [recursively].
+   * If there has a root on the given sequence of [paths], the path where the root appears last is
+   * taken as the beginning of the path.
    *
-   * @param overwrite whether to overwrite when the target file already exists.
-   * @param recursively if this path is a directory, move it and all its children to destination.
-   * @param keepAttributes moved all the attributes of this path to the target file.
-   * @param followLinks if the file to be moved is a symbolic link and the value is `true`, then
-   * move the link target, otherwise move the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from moving.
-   * @param onError what should be done when an error occurs when moving this path.
+   * This is best explained by analogy. Imagine you're in a command prompt and this path is your
+   * current command line path. You type "cd [paths]". The path after joined is the command line
+   * path you'd end up in.
    *
-   * @return the path to the [target]
+   * For example:
+   * ```
+   * Path("foo/bar").join("gav")           ->  `foo/bar/gav`
+   * Path("foo/bar").join("baz", "/gav")   -> `/gav`
+   * Path("/foo").join("/")                -> `/`
    *
-   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
-   * argument is set to `false`.
-   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
-   * argument is set to `true`, the copy fails, the target folder must be emptied first.
+   * ## Windows path.
+   * Path("C:").join("foo", "bar")         -> `C:foo/bar`
+   * Path("C:\\").join("Windows", "D:")    -> `D:`
+   *
+   * ## UNC path.
+   * Path("//softer").join("foo", "\\\\")  -> `\\\\`
+   *
+   * ## User home path symbol.
+   * Path("//softer").join("~", "foo")     -> `~/foo`
+   * ```
+   *
+   * @return the path after joined
    */
-  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
-  fun moveTo(
-    target: Path,
-    overwrite: Boolean = false,
-    recursively: Boolean = false,
-    keepAttributes: Boolean = false,
-    followLinks: Boolean = true,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> MoveErrorSolution = { _, throwable -> throw throwable }
-  ): Path
+  fun join(vararg paths: CharSequence): Path
 
   /**
-   * Moves this path into the given [targetDirectory].
+   * Joins a sequence of [paths] of the directory to this path.
    *
-   * If this path is a directory, it is moved without its content, i.e. an empty directory is
-   * created to [targetDirectory]. If you want to moved directory including its contents,
-   * set [recursively] to `true`.
-   *
-   * @param overwrite whether to overwrite when the target file already exists.
-   * @param recursively if this path is a directory, move it and all its children into destination.
-   * @param keepAttributes moved all the attributes of this path to the target file.
-   * @param followLinks if the file to be moved is a symbolic link and the value is `true`, then
-   * move the link target, otherwise move the symbolic link itself.
-   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
-   * files from moving.
-   * @param onError what should be done when an error occurs when moving this path or this
-   * directory sub files.
-   *
-   * @return the path to the [targetDirectory]
-   *
-   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
-   * argument is set to `false`.
-   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
-   * argument is set to `true`, the copy fails, the target folder must be emptied first.
+   * @return the path of directory after joined
+   * @see join for more details.
    */
-  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
-  fun moveInto(
-    targetDirectory: Path,
-    overwrite: Boolean = false,
-    recursively: Boolean = false,
-    keepAttributes: Boolean = false,
-    followLinks: Boolean = true,
-    filter: (Path) -> Boolean = { true },
-    onError: (Path, Throwable) -> MoveErrorSolution = { _, throwable -> throw throwable }
-  ): Path
+  fun joinDir(vararg paths: Path): Directory = this.join(*paths).asDir()
 
   /**
-   * Compares two abstract files/directories lexicographically.
+   * Joins a sequence of [paths] of the directory to this path.
    *
-   * @see Path.equals for more details
+   * @return the path of directory after joined
+   * @see join for more details.
    */
-  override operator fun compareTo(other: Path): Int
+  fun joinDir(vararg paths: CharSequence): Directory = this.join(*paths).asDir()
 
   /**
-   * Compares two abstract files/directories lexicographically.
+   * Joins a sequence of [paths] of the file to this path.
    *
-   * @see toString
+   * @return the path of file after joined
+   * @see join for more details.
    */
-  operator fun compareTo(other: String): Int
+  fun joinFile(vararg paths: Path): File = this.join(*paths).asFile()
 
   /**
-   * Tests this file/directory for equality with the given object.
+   * Joins a sequence of [paths] of the file to this path.
    *
-   * @see Path.equals for more details
+   * @return the path of file after joined
+   * @see join for more details.
+   */
+  fun joinFile(vararg paths: CharSequence): File = this.join(*paths).asFile()
+
+  /**
+   * Joins a sequence of [paths] to the parent path of this path, if the parent path is `null`,
+   * joined to root path.
+   *
+   * If there has a root on the given sequence of [paths], the path where the root appears last is
+   * taken as the beginning of the path.
+   *
+   * For example:
+   * ```
+   * Path("foo/bar").joinToParent("gav")  -> `foo/gav`
+   * Path("foo/bar").joinToParent("/gav") -> `/gav`
+   * Path("foo/bar").joinToParent("~/")   -> `~/`
+   * ```
+   *
+   * @return the path after joined
+   * @see join
+   */
+  fun joinToParent(vararg paths: Path): Path =
+    parent?.join(*paths) ?: EmptyRootPath.join(*paths)
+
+  /**
+   * Joins a sequence of [paths] to the parent path of this path, if the parent path is `null`,
+   * joined to root path.
+   *
+   * If there has a root on the given sequence of [paths], the path where the root appears last is
+   * taken as the beginning of the path.
+   *
+   * For example:
+   * ```
+   * Path("foo/bar").joinToParent("gav")  -> `foo/gav`
+   * Path("foo/bar").joinToParent("/gav") -> `/gav`
+   * Path("foo/bar").joinToParent("~/")   -> `~/`
+   * ```
+   *
+   * @return the path after joined
+   * @see join
+   */
+  fun joinToParent(vararg paths: CharSequence): Path =
+    parent?.join(*paths) ?: EmptyRootPath.join(*paths)
+
+  /**
+   * Joins a sequence of [paths] of the directory to the parent path of this path, if the parent
+   * path is `null`, joined to root path.
+   *
+   * @return the path of directory after joined
+   * @see joinToParent for more details.
+   */
+  fun joinDirToParent(vararg paths: Path): Directory = this.joinToParent(*paths).asDir()
+
+  /**
+   * Joins a sequence of [paths] of the directory to the parent path of this path, if the parent
+   * path is `null`, joined to root path.
+   *
+   * @return the path of directory after joined
+   * @see joinToParent for more details.
+   */
+  fun joinDirToParent(vararg paths: CharSequence): Directory = this.joinToParent(*paths).asDir()
+
+  /**
+   * Joins a sequence of [paths] of the file to the parent path of this path, if the parent path
+   * is `null`, joined to root path.
+   *
+   * @return the path of file after joined
+   * @see joinToParent for more details.
+   */
+  fun joinFileToParent(vararg paths: Path): File = this.joinToParent(*paths).asFile()
+
+  /**
+   * Joins a sequence of [paths] of the file to the parent path of this path, if the parent path
+   * is `null`, joined to root path.
+   *
+   * @return the path of file after joined
+   * @see joinToParent for more details.
+   */
+  fun joinFileToParent(vararg paths: CharSequence): File = this.joinToParent(*paths).asFile()
+
+  /**
+   * Returns a relative path from this path to the given [target] path, or an empty path if both
+   * paths are equals.
+   *
+   * For example:
+   * ```
+   * Path("/data/system/bin").relativeTo("/home")  -> `../../../home`
+   * Path("/data").relativeTo("/data/system/bin")  -> `system/bin`
+   * Path("/data").relativeTo("/data")             -> `.`
+   * Path("C:/Windows").relativeTo("/home")        -> `/home`
+   * ```
+   *
+   * @param target the target path to be reached by this path.
+   */
+  infix fun relativeTo(target: CharSequence): Path
+
+  /**
+   * Returns a relative path from this path to the given [target] path, or an empty path if both
+   * paths are equals.
+   *
+   * For example:
+   * ```
+   * Path("/data/system/bin").relativeTo("/home")  -> `../../../home`
+   * Path("/data").relativeTo("/data/system/bin")  -> `system/bin`
+   * Path("/data").relativeTo("/data")             -> `.`
+   * Path("C:/Windows").relativeTo("/home")        -> `/home`
+   * ```
+   *
+   * @param target the target path to be reached by this path.
+   */
+  infix fun relativeTo(target: Path): Path
+
+  /**
+   * Returns a relative path string from this path to the given [target] path, or an empty path if
+   * both paths are equals.
+   *
+   * For example:
+   * ```
+   * Path("/data/system/bin").relativeTo("/home")  -> `../../../home`
+   * Path("/data").relativeTo("/data/system/bin")  -> `system/bin`
+   * Path("/data").relativeTo("/data")             -> `.`
+   * Path("C:/Windows").relativeTo("/home")        -> `/home`
+   * ```
+   *
+   * @param target the target path to be reached by this path.
+   */
+  infix fun relativeStrTo(target: CharSequence): String = relativeTo(target).toString()
+
+  /**
+   * Returns a relative path string from this path to the given [target] path, or an empty path if
+   * both paths are equals.
+   *
+   * For example:
+   * ```
+   * Path("/data/system/bin").relativeTo("/home")  -> `../../../home`
+   * Path("/data").relativeTo("/data/system/bin")  -> `system/bin`
+   * Path("/data").relativeTo("/data")             -> `.`
+   * Path("C:/Windows").relativeTo("/home")        -> `/home`
+   * ```
+   *
+   * @param target the target path to be reached by this path.
+   */
+  infix fun relativeStrTo(target: Path): String = relativeTo(target).toString()
+
+  /**
+   * Creates all non-existent parent directories of this file, including any necessary but
+   * nonexistent parent directories. If some path on the parent directories paths already exists
+   * and is a file, throw an [PathExistsAndIsNotDirectoryException], otherwise skip them.
+   *
+   * For example, the path is: `foo/bar/baz.file`, the function will be created directories:
+   * 'foo' and 'bar'.
+   *
+   * @return this file
+   */
+  @Throws(PathExistsAndIsNotDirectoryException::class)
+  fun createParentDirectories(): Self
+
+  /**
+   * Returns the real path of an existing file.
+   *
+   * @param followLinks if this is a symbolic link, whether to handle the final target of link.
+   *
+   * @return this path
+   */
+  fun toReal(followLinks: Boolean = true): Self
+
+  /**
+   * Returns the list of this path split.
+   *
+   * The first element of the list is the name of this parent path that this path can touch last,
+   * and the last element of the list is the name of this path, and the list will be normalized,
+   * e.g, if the path is
+   *   `foo/bar/gav/../file.txt`,
+   * the list will be
+   *   `[foo, bar, file.txt]`.
+   *
+   * For more example:
+   * ```
+   * Path("C:/foo/bar").split() == `[C:, foo, bar]`
+   *
+   * // If user home path is `/home/kitty`
+   * Path("~/foo/bar").split() == `[home, kitty, foo, bar]`
+   *
+   * // If current work path is `home/working/foo/bar`
+   * Path("../../baz").split() == `[home, working, baz]`
+   * ```
+   */
+  fun split(): List<String>
+
+  /**
+   * Returns `true` if this path starts with the given [path].
+   */
+  fun startsWith(path: Path): Boolean
+
+  /**
+   * Returns `true` if this path ends with the given [path].
+   */
+  fun endsWith(path: Path): Boolean
+
+  /**
+   * Creates a "hard link" for the [target] path (the [target] must exists) so that it can be
+   * accessed using this path.
+   *
+   * @return the [target] path to the link
+   *
+   * @throws UnsupportedOperationException Only allow to create link for file, if the target is a
+   *   directory, it cannot be created.
+   * @throws LinkAlreadyExistsException if the [target] path already linked, it cannot be created.
+   */
+  fun <R : Path> linkTo(target: R): R
+
+  /**
+   * Creates a symbolic link to the [target] path.
+   *
+   * @return the [target] path to the symbolic link
+   *
+   * @throws PathAlreadyExistsException if the target already exists, it cannot be overwritten
+   *   with a symbolic link.
+   *
+   * @see symbolicLink
+   */
+  fun <R : Path> linkSymbolTo(target: R): R
+
+  /**
+   * Returns true if the object of this path is exactly equal to the given [other] object.
+   */
+  fun isSameAs(other: Path?): Boolean
+
+  /**
+   * Returns true if this path is equals to the path of given [other] object.
+   *
+   * @see isSameAs
    */
   override fun equals(other: Any?): Boolean
 
   /**
-   * Computes a hash code for this file/directory.
+   * Compares two abstract paths lexicographically. This function does not access the file system
+   * and neither file is required exists.
    *
-   * @see Path.hashCode for more details
+   * By default, it is processed by the expression `path.toString().compareTo(other.toString())`.
+   */
+  override fun compareTo(other: Self): Int
+
+  /**
+   * Compares two abstract paths lexicographically. This function does not access the file system
+   * and neither file is required exists.
+   *
+   * By default, it is processed by the expression `path.toString().compareTo(otherPath)`.
+   */
+  fun compareTo(otherPath: String): Int
+
+  /**
+   * Computes a hash code for this path.
+   *
+   * By default, it is processed by the expression `path.toString().hashCode()`.
+   * ```
    */
   override fun hashCode(): Int
 
   /**
-   * Returns the string representation of this file/directory.
-   *
-   * @see Path.hashCode for more details
+   * Returns the string representation of this path.
    */
   override fun toString(): String
 }
 
 /**
- * Get the path site based on the path string.
+ * An object representing the any type of path.
  *
- * @param first the path string or initial part of the path string
- * @param more additional strings to be joined to form the path string
+ * @see File
+ * @see Directory
+ * @see Zip
+ * @see ZipEntry
+ * @see ZipFileEntry
+ * @see ZipDirectoryEntry
  */
-expect fun Path(first: String, vararg more: String): Path
+typealias Path = IPath<*>
 
 /**
- * Convert [String] to [Path].
+ * Returns the path based on the path char sequence.
+ *
+ * @param first the path char sequence or initial part of the path
+ * @param more additional char sequence to be joined to form the path
  */
-inline fun String.asPath(vararg more: String): Path = Path(this, *more)
+expect fun Path(first: CharSequence, vararg more: CharSequence): Path
+
+/**
+ * Convert [CharSequence] to [Path].
+ *
+ * @param more additional char sequence to be joined to form the path
+ */
+inline fun CharSequence.asPath(vararg more: CharSequence): Path = Path(this, *more)
+
+/**
+ * Returns an empty root path.
+ */
+val EmptyRootPath = Path(SystemSeparator)
+
+/**
+ * Returns an empty relative path.
+ */
+val EmptyRelativePath = Path("")
+
+/**
+ * Returns a relative path represents to the current work.
+ */
+val CurrentRelativePath = Path(".")

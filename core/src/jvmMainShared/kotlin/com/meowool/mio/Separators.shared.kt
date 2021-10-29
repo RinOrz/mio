@@ -2,14 +2,14 @@
 
 package com.meowool.mio
 
+import com.meowool.mio.internal.backport
 import java.io.File
 import java.nio.file.FileSystems
 
 /**
- * Returns the standard separator of the current system.
+ * Returns the char of standard separator of the current system.
  */
-actual val SystemSeparator: String get() = runCatching {
-  FileSystems.getDefault().separator
-}.getOrElse {
-  File.separator
-}
+actual val SystemSeparatorChar: Char get() = backport(
+  legacy = { File.separatorChar },
+  modern = { FileSystems.getDefault().separator[0] }
+)

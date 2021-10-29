@@ -1,0 +1,848 @@
+//@file:Suppress("FunctionName", "NOTHING_TO_INLINE", "NO_ACTUAL_FOR_EXPECT")
+//
+//package com.meowool.mio
+//
+//import kotlinx.coroutines.flow.Flow
+//import okio.BufferedSink
+//import okio.BufferedSource
+//import okio.Sink
+//import okio.Source
+//
+///**
+// * An object representing the file system and its path.
+// *
+// * @author 凛 (https://github.com/RinOrz)
+// */
+//interface Path : Comparable<Path> {
+//
+//  /**
+//   * Returns the absolute path of this file or directory.
+//   */
+//  val absolute: Path
+//
+//  /**
+//   * Returns an absolute path represent the real path of this file or directory located. If this
+//   * is a symbolic link, it will be resolved to the final target.
+//   */
+//  val real: Path
+//
+//  /**
+//   * If this path is a symbolic link, returns the linked target, otherwise return itself.
+//   */
+//  val symbolicLink: Path
+//
+//  /**
+//   * Returns `true` if the path is absolute.
+//   *
+//   * An absolute path is complete in that it doesn't need to be combined with other path
+//   * information in order to locate a file or directory.
+//   */
+//  val isAbsolute: Boolean
+//
+//  /**
+//   * The name of the file or directory of this path, which is the last element of [names].
+//   */
+//  var name: String
+//
+//  /**
+//   * Returns the list of each name of this path split.
+//   *
+//   * The first element of the list is the name of this parent path that this path can touch last,
+//   * and the last element of the list is the name of this path, for example,
+//   * the path: `foo/bar/file.txt`, the list of the [names] is `[foo, bar, file.txt]`.
+//   */
+//  val names: List<String>
+//
+//  /**
+//   * The extension of this file (not including the dot). If there is only one dot and it is
+//   * first in the name, the extension will be empty.
+//   *
+//   * For example getting,
+//   * ```
+//   * foo.txt     -> "txt"
+//   * .aaa.jpg    -> "jpg"
+//   * .xyz        -> ""
+//   * ```
+//   *
+//   * For example setting,
+//   * ```
+//   * foo.txt     -- zip    -> foo.zip
+//   * .aaa.jpg    -- png    -> .aaa.zip
+//   * .xyz        -- txt   -> .xyz.txt
+//   * ```
+//   */
+//  var extension: String
+//
+//  /**
+//   * The extension of this file (including the dot). If there is only one dot and it is first in
+//   * the name, the extension will be empty.
+//   *
+//   * For example,
+//   * ```
+//   * foo.txt     -> ".txt"
+//   * .aaa.jpg    -> ".jpg"
+//   * .xyz        -> ""
+//   * ```
+//   *
+//   * @see extension
+//   */
+//  val extensionWithDot: String
+//
+//  /**
+//   * The file's name without an extension. If there is only one dot and it is first in the
+//   * [name], it will be all of [name].
+//   *
+//   * For example getting,
+//   * ```
+//   * foo.txt     -> foo
+//   * .aaa.jpg    -> .aaa
+//   * .xyz        -> .xyz
+//   * ```
+//   *
+//   * For example setting,
+//   * ```
+//   * foo.txt     -- bar   -> bar.txt
+//   * .aaa.jpg    -- bbb   -> bbb.zip
+//   * .xyz        -- ccc   -> ccc
+//   * ```
+//   */
+//  var nameWithoutExtension: String
+//
+//  /**
+//   * The parent path of this file or directory, or `null` if this path does not have a parent.
+//   */
+//  var parent: Path?
+//
+//  /**
+//   * The time in milliseconds of last modification.
+//   *
+//   * If the file system implementation does not support a time stamp to indicate the time of
+//   * last modification then this property returns an implementation specific default value,
+//   * typically milliseconds representing the epoch (1970-01-01T00:00:00Z).
+//   */
+//  var lastModifiedTime: Long
+//
+//  /**
+//   * The time in milliseconds of last access.
+//   *
+//   * If the file system implementation does not support a time stamp to indicate the time of
+//   * last access then this property returns an implementation specific default value, typically
+//   * the [lastModifiedTime] or milliseconds representing the epoch (1970-01-01T00:00:00Z).
+//   */
+//  var lastAccessTime: Long
+//
+//  /**
+//   * The creation time in milliseconds is the time that the file was created.
+//   *
+//   * If the file system implementation does not support a time stamp to indicate the time when
+//   * the file was created then this property returns an implementation specific default value,
+//   * typically the [lastModifiedTime] or milliseconds representing the epoch (1970-01-01T00:00:00Z).
+//   */
+//  var creationTime: Long
+//
+//  /**
+//   * Returns `true` if this path has no parent path, represents that this is a root path.
+//   */
+//  val isRoot: Boolean
+//
+//  /**
+//   * The file whether is readable.
+//   */
+//  var isReadable: Boolean
+//
+//  /**
+//   * The file whether is writable.
+//   */
+//  var isWritable: Boolean
+//
+//  /**
+//   * The file whether is executable.
+//   */
+//  var isExecutable: Boolean
+//
+//  /**
+//   * This is whether or not a hidden file or directory.
+//   *
+//   * The exact definition of hidden is platform or provider dependent.
+//   * On UNIX for example a file or directory is considered to be hidden if its name begins with a dot.
+//   * On Windows a file is considered hidden if it isn't a directory and the [isHidden] attribute is set.
+//   */
+//  var isHidden: Boolean
+//
+//  /**
+//   * Returns `true` if the file is a regular file with opaque content.
+//   */
+//  val isRegularFile: Boolean
+//
+//  /**
+//   * Returns `true` if the file is a directory.
+//   */
+//  val isDirectory: Boolean
+//
+//  /**
+//   * Returns `true` if the file is a symbolic link.
+//   */
+//  val isSymbolicLink: Boolean
+//
+//  /**
+//   * Returns `true` if the file something other than a regular file, directory or symbolic link.
+//   */
+//  val isOther: Boolean
+//
+//  /**
+//   * Changes or returns the size of the file (in bytes).
+//   *
+//   * If changes the number of bytes in this file to [size] and the new size is smaller. this will
+//   * remove bytes from the end. It will add `0` bytes to the end if it is larger. If the path is
+//   * not [isRegularFile], the changes will fail and nothing will happen. The size of non-file
+//   * path is system-specific implementation, so cannot changes it.
+//   *
+//   * The size may differ from the actual size on the file
+//   * system due to compression, support for sparse files, or other reasons.
+//   */
+//  var size: Long
+//
+//  /**
+//   * Returns a readable size string.
+//   *
+//   * @see size
+//   * @see com.meowool.sweekt.toReadableSize for more details
+//   */
+//  val readableSize: String
+//
+//  /**
+//   * Probes the content type (MIME type) of this path.
+//   *
+//   * Note that this property is not necessarily accurate, even empty. If you want to get very
+//   * accurate results, you can use other content detection libraries such as
+//   * [Apache-Tika](https://tika.apache.org/).
+//   */
+//  val contentType: String
+//
+//  /**
+//   * Returns an object that uniquely identifies the given file, or null.
+//   */
+//  val key: Any?
+//
+//  /**
+//   * Returns the 'source' of this path to read data.
+//   */
+//  val source: Source
+//
+//  /**
+//   * Returns the 'source' that keeps the buffer internally to read the data of this path with
+//   * fewer I/O operations.
+//   */
+//  val bufferedSource: BufferedSource
+//
+//  /**
+//   * Returns the 'sink' of this path to write data.
+//   */
+//  val sink: Sink
+//
+//  /**
+//   * Returns the 'sink' that keeps the buffer internally to write the data of this path with
+//   * better performance.
+//   */
+//  val bufferedSink: BufferedSink
+//
+//  /**
+//   * Returns the 'sink' of the end of the file at this path to append data.
+//   */
+//  val appendingSink: Sink
+//
+//  /**
+//   * Returns the 'sink' that keeps the buffer internally to append the data of the end of the
+//   * file at this path with better performance.
+//   */
+//  val appendingBufferedSink: BufferedSink
+//
+//  /**
+//   * Reads or changes all bytes in this path file. If changes the bytes of an existing file, will
+//   * overwrite it. Otherwise will creates an empty file to write bytes.
+//   *
+//   * Note that this property applies to the simple reads or writes to the entire file, but it does
+//   * not apply to a file greater than about 2GB. To read or write large file,
+//   * use [source], [append], [lines] and other properties or functions instead.
+//   *
+//   * @see text
+//   * @see write
+//   */
+//  var bytes: ByteArray
+//
+//  /**
+//   * Reads all bytes in this path file as text.
+//   *
+//   * Note that this function applies to the simple reads to the entire file, but it does not
+//   * apply to a file greater than about 2GB. To read large file, use [source], [lines] and
+//   * other functions instead.
+//   *
+//   * @param charset character set to use for reading text of file.
+//   *
+//   * @see bytes
+//   */
+//  fun text(charset: Charset = Charsets.UTF_8): String
+//
+//  /**
+//   * Reads all lines of this file. The 'cold' flow can be read on demand, and the line in the file
+//   * will be read only when it is collected likes [Flow.collect].
+//   *
+//   * @param charset character set to use for reading line of file.
+//   */
+//  fun lines(charset: Charset = Charsets.UTF_8): Flow<String>
+//
+//  /**
+//   * Appends the given [bytes] to the end of this file, if the file already exists, otherwise
+//   * creates a new file and written.
+//   *
+//   * It is not recommended to call this function frequently, because the source will be opened
+//   * and the sink will be closed every time append content. If want to append content frequently,
+//   * please consider using [appendingBufferedSink] and [BufferedSink.write], and call [Sink.close]
+//   * to close the sink after everything is done.
+//   *
+//   * @return this path
+//   */
+//  fun append(bytes: ByteArray): Path
+//
+//  /**
+//   * Appends the given [text] to the end of this file, if the file already exists, otherwise
+//   * creates a new file and written.
+//   *
+//   * It is not recommended to call this function frequently, because the source will be opened
+//   * and the sink will be closed every time append content. If want to append content frequently,
+//   * please consider using [appendingBufferedSink] and [BufferedSink.writeUtf8],
+//   * and call [Sink.close] to close the sink after everything is done.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun append(text: CharSequence, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Appends the given [lines] to the end of this file, if the file already exists, otherwise
+//   * creates a new file and written.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun append(lines: Iterable<CharSequence>, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Appends the given [lines] to the end of this file, if the file already exists, otherwise
+//   * creates a new file and written.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun append(lines: Sequence<CharSequence>, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Writes the given [text] to this file, if the file already exists, otherwise creates a new
+//   * file and written.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun write(text: CharSequence, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Writes the given [lines] to this file, if the file already exists, otherwise creates a new
+//   * file and written.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun write(lines: Iterable<CharSequence>, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Writes the given [lines] to the file, if the file already exists, overwrite its entire
+//   * content, otherwise create a new file and write it.
+//   *
+//   * @return this path
+//   * @param charset character set to use for writing text.
+//   */
+//  fun write(lines: Sequence<CharSequence>, charset: Charset = Charsets.UTF_8): Path
+//
+//  /**
+//   * Removes all . and resolves all possible .. in this file name.
+//   * For instance, `File("/foo/./bar/gav/../baz").normalize()` is `File("/foo/bar/baz")`.
+//   *
+//   * @return normalized pathname with . and possibly .. removed.
+//   */
+//  fun normalize(): Path
+//
+//  /**
+//   * Returns `true` if this path starts with the given [path].
+//   */
+//  fun startsWith(path: Path): Boolean
+//
+//  /**
+//   * Returns `true` if this path ends with the given [path].
+//   */
+//  fun endsWith(path: Path): Boolean
+//
+//  /**
+//   * Creates a empty file. If the file already exists and the argument [overwrite] is set
+//   * to `true`, an empty file will be created to overwrite it, but if the existing path is a
+//   * directory instead of a file, regardless of the argument [overwrite] whether is set to `true`,
+//   * will throw an [PathExistsAndIsNotFileException].
+//   *
+//   * If the argument [overwrite] is set to `false` and the file already exists, nothing will happen.
+//   *
+//   * @see createStrictFile
+//   * @return created file path
+//   */
+//  @Throws(PathExistsAndIsNotFileException::class)
+//  fun createFile(overwrite: Boolean = false): Path
+//
+//  /**
+//   * Creates a empty file. If the file already exists and the argument [overwrite] is set
+//   * to `true`, an empty file will be created to overwrite it, but if the existing path is a
+//   * directory instead of a file, regardless of the argument [overwrite] whether is set to `true`,
+//   * will throw an [PathExistsAndIsNotFileException].
+//   *
+//   * If the argument [overwrite] is set to `false` and the file already exists, will be throw an
+//   * [PathAlreadyExistsException].
+//   *
+//   * @see createFile
+//   * @return created file path
+//   */
+//  @Throws(PathExistsAndIsNotFileException::class, PathAlreadyExistsException::class)
+//  fun createStrictFile(overwrite: Boolean = false): Path
+//
+//  /**
+//   * Creates a directory. If the directory already exists and the argument [overwrite] is set
+//   * to `true`, an empty directory will be created to overwrite
+//   * it (regardless of whether there is a file in the existing directory),
+//   * but if the existing path is a file instead of a directory, regardless of the argument
+//   * [overwrite] whether is set to `true`, will throw an [PathExistsAndIsNotDirectoryException].
+//   *
+//   * If the argument [overwrite] is set to `false` and the directory already exists, nothing
+//   * will happen.
+//   *
+//   * @see createStrictDirectory
+//   * @return created directory path
+//   */
+//  @Throws(PathExistsAndIsNotDirectoryException::class)
+//  fun createDirectory(overwrite: Boolean = false): Path
+//
+//  /**
+//   * Creates a directory. If the directory already exists and the argument [overwrite] is set
+//   * to `true`, an empty directory will be created to overwrite
+//   * it (if the original directory has sub-files, an [DirectoryNotEmptyException] will be thrown),
+//   * but if the existing path is a file instead of a directory, regardless of the argument
+//   * [overwrite] whether is set to `true`, will throw an [PathExistsAndIsNotDirectoryException].
+//   *
+//   * If the argument [overwrite] is set to `false` and the directory already exists, will be throw
+//   * an [PathAlreadyExistsException].
+//   *
+//   * @see createDirectory
+//   * @throws DirectoryNotEmptyException if the directory is not empty, even set the value [overwrite]
+//   *   to `true` will not help, in this case should invoke [Path.clearDirectory] first to clear
+//   *   the directory.
+//   * @return created directory path
+//   */
+//  @Throws(PathExistsAndIsNotDirectoryException::class, PathAlreadyExistsException::class)
+//  fun createStrictDirectory(overwrite: Boolean = false): Path
+//
+//  /**
+//   * Creates a directory, including any necessary but nonexistent parent directories.
+//   * If some path in the directories paths already exists and is a file, throw
+//   * an [PathExistsAndIsNotDirectoryException].
+//   *
+//   * @return created directory path
+//   */
+//  @Throws(PathExistsAndIsNotDirectoryException::class)
+//  fun createDirectories(): Path
+//
+//  /**
+//   * Creates all non-existent parent directories of this path, including any necessary but
+//   * nonexistent parent directories. If some path in the parent directories paths already exists
+//   * and is a file, throw an [PathExistsAndIsNotDirectoryException].
+//   *
+//   * For example, the path is: `foo/bar/baz.file`, the function will be create directories:
+//   * 'foo' and 'bar'.
+//   *
+//   * @return this path
+//   */
+//  fun createParentDirectories(): Path
+//
+//  /**
+//   * Returns the real path of an existing file.
+//   *
+//   * @param followLinks options indicating how symbolic links are handled.
+//   */
+//  fun toRealPath(followLinks: Boolean = true): Path
+//
+//  /**
+//   * Creates a "hard link" for the [target] path (the [target] must exists) so that it can be
+//   * accessed using this path.
+//   *
+//   * @return the [target] path to the link
+//   *
+//   * @throws UnsupportedOperationException Only allow to creates link for file, if the target is a
+//   *   directory, it cannot be created.
+//   * @throws LinkAlreadyExistsException if the [target] path already linked, it cannot be created.
+//   */
+//  fun linkTo(target: Path): Path
+//
+//  /**
+//   * Creates a symbolic link to the [target] path.
+//   *
+//   * @return the [target] path to the symbolic link
+//   *
+//   * @throws PathAlreadyExistsException if the target already exists, it cannot be overwritten
+//   *   with a symbolic link.
+//   *
+//   * @see symbolicLink
+//   */
+//  fun linkSymbolTo(target: Path): Path
+//
+//  /**
+//   * Deletes a path file safely. If the file is a symbolic link, then the symbolic link itself, not
+//   * the final target of the link, is deleted, if you want to change this behavior, set
+//   * [followLinks] to `true`, this will remove the target of the link.
+//   *
+//   * If the path is a directory then the directory must be empty, otherwise the deletion fails.
+//   * If you want to delete the directory and all its children, set [recursively] to `true`.
+//   *
+//   * @param recursively if this path is a directory, deletes it and all its children.
+//   * @param followLinks if the path is a symbolic link and the value is `true`, then delete the
+//   *   link final target, otherwise delete the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from deleting.
+//   * @param onError what should be done when an error occurs when deleting this path.
+//   *
+//   * @return if the deletion fails, it returns `false`.
+//   *
+//   * @see deleteStrictly
+//   */
+//  fun delete(
+//    recursively: Boolean = false,
+//    followLinks: Boolean = false,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> DeleteErrorSolution = { _, throwable -> throw throwable },
+//  ): Boolean
+//
+//  /**
+//   * Deletes if the path exists. Regardless of whether the deletion is successful or not, it will
+//   * return to itself and will not throw any exceptions.
+//   *
+//   * @return this path
+//   * @see delete
+//   */
+//  fun deleteIfExists(
+//    recursively: Boolean = false,
+//    followLinks: Boolean = false,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> DeleteErrorSolution = { _, throwable -> throw throwable },
+//  ): Path
+//
+//  /**
+//   * Deletes a path file strictly. If the file is a symbolic link, then the symbolic link itself,
+//   * not the final target of the link, is deleted, if you want to change this behavior, set
+//   * [followLinks] to `true`, this will remove the target of the link.
+//   *
+//   * If the path is a directory then the directory must be empty, otherwise throw the
+//   * [DirectoryNotEmptyException].
+//   * If you want to delete the directory and all its children, set [recursively] to `true`.
+//   *
+//   * @param recursively if this path is a directory, deletes it and all its children.
+//   * @param followLinks if the path is a symbolic link and the value is `true`, then delete the
+//   *   link final target, otherwise delete the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from deleting.
+//   * @param onError what should be done when an error occurs when deleting this path.
+//   *
+//   * @throws DirectoryNotEmptyException if the path is a non-empty directory, and [recursively]
+//   *   is set to `false`, it cannot be deleted.
+//   *
+//   * @see delete
+//   */
+//  @Throws(NoSuchFileException::class, DirectoryNotEmptyException::class)
+//  fun deleteStrictly(
+//    recursively: Boolean = false,
+//    followLinks: Boolean = false,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> DeleteErrorSolution = { _, throwable -> throw throwable },
+//  )
+//
+//  /**
+//   * Returns `true` if this file or directory is empty.
+//   *
+//   * If this path is a file, it means that the file has no content.
+//   * If this path is a directory, it means that there are no files in this directory.
+//   */
+//  fun isEmpty(): Boolean
+//
+//  /**
+//   * Returns `true` if this file or directory is not empty.
+//   *
+//   * If this path is a file, it means that the file has content.
+//   * If this path is a directory, it means that there are files in this directory.
+//   */
+//  fun isNotEmpty(): Boolean
+//
+//  /**
+//   * Returns `true` if this file or directory is exists.
+//   *
+//   * @param followLinks if this is a symbolic link, whether to ensure the final real target of link
+//   *   is exists.
+//   *
+//   * @see notExists
+//   */
+//  fun exists(followLinks: Boolean = true): Boolean
+//
+//  /**
+//   * Returns `true` if this file or directory does not exist.
+//   *
+//   * @param followLinks if this is a symbolic link, whether to ensure the final real target of link
+//   *   is not exists.
+//   *
+//   * @see exists
+//   */
+//  fun notExists(followLinks: Boolean = true): Boolean
+//
+//  /**
+//   * Returns a lazy flow to reading all entries in the directory on demand.
+//   *
+//   * @param recursively represents whether you need to return a recursive list. this is consistent
+//   *   with the [descendants] (1 or Int.MAX_VALUE) behavior.
+//   */
+//  fun children(recursively: Boolean = false): Flow<Path>
+//
+//  /**
+//   * Returns all file entries in the directory directly.
+//   *
+//   * @param recursively represents whether you need to return a recursive list. this is consistent
+//   *   with the [descendants] (1 or Int.MAX_VALUE) behavior.
+//   */
+//  fun childrenList(recursively: Boolean = false): List<Path>
+//
+//  /**
+//   * Returns all file entries in this directory by traversing the file tree lazily.
+//   *
+//   * Similar to [walk], but does not include itself.
+//   *
+//   * @param maxDepth the maximum number of directory levels to traverse. when the value
+//   *   is [Int.MAX_VALUE], recursively traverse all sub directories.
+//   */
+//  fun descendants(maxDepth: Int = Int.MAX_VALUE): Flow<Path>
+//
+//  /**
+//   * Returns all file entries in this directory by traversing the file tree directly.
+//   *
+//   * Similar to [walk], but does not include itself.
+//   *
+//   * @param maxDepth the maximum number of directory levels to traverse. when the value
+//   *   is [Int.MAX_VALUE], recursively traverse all sub directories.
+//   */
+//  fun descendantsList(maxDepth: Int = Int.MAX_VALUE): List<Path>
+//
+//  /**
+//   * Returns all file entries by walking the file tree lazily.
+//   *
+//   * Similar to [descendants], but include itself.
+//   *
+//   * @param maxDepth the maximum number of directory levels to walk. when the value
+//   *   is [Int.MAX_VALUE], walk all directories.
+//   */
+//  fun walk(maxDepth: Int = Int.MAX_VALUE): Flow<Path>
+//
+//  /**
+//   * Returns all file entries by walking the file tree directly.
+//   *
+//   * Similar to [descendants], but include itself.
+//   *
+//   * @param maxDepth the maximum number of directory levels to walk. when the value
+//   *   is [Int.MAX_VALUE], walk all directories.
+//   */
+//  fun walkList(maxDepth: Int = Int.MAX_VALUE): List<Path>
+//
+//  /**
+//   * Copies this path to the given [target] path.
+//   *
+//   * If this path is a directory, it is copied without its content, i.e. an empty [target]
+//   * directory is created.
+//   * If you want to copied directory including its contents, set [recursively] to `true`.
+//   *
+//   * @param overwrite whether to overwrite when the target file already exists.
+//   * @param recursively if this path is a directory, copy it and all its children to destination.
+//   * @param cloneAttrs copied all the attributes of this path to the target file.
+//   * @param followLinks if the file to be copied is a symbolic link and the value is `true`, then
+//   *   copy the link target, otherwise copy the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from copying.
+//   * @param onError what should be done when an error occurs when copying this path.
+//   *
+//   * @return the path to the [target]
+//   *
+//   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
+//   *   argument is set to `false`.
+//   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
+//   *   argument is set to `false`, the copy fails, the target folder must be emptied first.
+//   */
+//  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
+//  fun copyTo(
+//    target: Path,
+//    overwrite: Boolean = false,
+//    recursively: Boolean = false,
+//    cloneAttrs: Boolean = false,
+//    followLinks: Boolean = true,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> CopyErrorSolution = { _, throwable -> throw throwable },
+//  ): Path
+//
+//  /**
+//   * Copies this path into the given [targetDirectory].
+//   *
+//   * If this path is a directory, it is copied without its content, i.e. an empty directory is
+//   * created to [targetDirectory].
+//   * If you want to copied directory including its contents, set [recursively] to `true`.
+//   *
+//   * @param overwrite whether to overwrite when the target file already exists.
+//   * @param recursively if this path is a directory, copy it and all its children into destination.
+//   * @param cloneAttrs copied all the attributes of this path to the target file.
+//   * @param followLinks if the file to be copied is a symbolic link and the value is `true`, then
+//   *   copy the link target, otherwise copy the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from copying.
+//   * @param onError what should be done when an error occurs when copying this path or this
+//   *   directory sub files.
+//   *
+//   * @return the path to the [targetDirectory]
+//   *
+//   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
+//   *   argument is set to `false`.
+//   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
+//   *   argument is set to `true`, the copy fails, the target folder must be emptied first.
+//   */
+//  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
+//  fun copyInto(
+//    targetDirectory: Path,
+//    overwrite: Boolean = false,
+//    recursively: Boolean = false,
+//    cloneAttrs: Boolean = false,
+//    followLinks: Boolean = true,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> CopyErrorSolution = { _, throwable -> throw throwable },
+//  ): Path
+//
+//  /**
+//   * Moves this path to the given [target] path.
+//   *
+//   * If this path is a directory, it is moved without its content, i.e. an empty [target]
+//   * directory is created. If you want to moved directory including its contents, use [recursively].
+//   *
+//   * @param overwrite whether to overwrite when the target file already exists.
+//   * @param recursively if this path is a directory, move it and all its children to destination.
+//   * @param cloneAttrs moved all the attributes of this path to the target file.
+//   * @param followLinks if the file to be moved is a symbolic link and the value is `true`, then
+//   *   move the link target, otherwise move the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from moving.
+//   * @param onError what should be done when an error occurs when moving this path.
+//   *
+//   * @return the path to the [target]
+//   *
+//   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
+//   *   argument is set to `false`.
+//   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
+//   *   argument is set to `true`, the copy fails, the target folder must be emptied first.
+//   */
+//  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
+//  fun moveTo(
+//    target: Path,
+//    overwrite: Boolean = false,
+//    recursively: Boolean = false,
+//    cloneAttrs: Boolean = false,
+//    followLinks: Boolean = true,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> MoveErrorSolution = { _, throwable -> throw throwable },
+//  ): Path
+//
+//  /**
+//   * Moves this path into the given [targetDirectory].
+//   *
+//   * If this path is a directory, it is moved without its content, i.e. an empty directory is
+//   * created to [targetDirectory]. If you want to moved directory including its contents,
+//   * set [recursively] to `true`.
+//   *
+//   * @param overwrite whether to overwrite when the target file already exists.
+//   * @param recursively if this path is a directory, move it and all its children into destination.
+//   * @param cloneAttrs moved all the attributes of this path to the target file.
+//   * @param followLinks if the file to be moved is a symbolic link and the value is `true`, then
+//   *   move the link target, otherwise move the symbolic link itself.
+//   * @param filter if this is a directory and [recursively] is true, you can filter to exclude some
+//   *   files from moving.
+//   * @param onError what should be done when an error occurs when moving this path or this
+//   *   directory sub files.
+//   *
+//   * @return the path to the [targetDirectory]
+//   *
+//   * @throws PathAlreadyExistsException if the target file already exists and [overwrite]
+//   *   argument is set to `false`.
+//   * @throws  DirectoryNotEmptyException if the target is a non-empty directory and the [overwrite]
+//   *   argument is set to `true`, the copy fails, the target folder must be emptied first.
+//   */
+//  @Throws(PathAlreadyExistsException::class, DirectoryNotEmptyException::class)
+//  fun moveInto(
+//    targetDirectory: Path,
+//    overwrite: Boolean = false,
+//    recursively: Boolean = false,
+//    cloneAttrs: Boolean = false,
+//    followLinks: Boolean = true,
+//    filter: (Path) -> Boolean = { true },
+//    onError: (path: Path, throwable: Throwable) -> MoveErrorSolution = { _, throwable -> throw throwable },
+//  ): Path
+//
+//  /**
+//   * Compares two abstract files/directories lexicographically.
+//   *
+//   * @see Path.equals for more details
+//   */
+//  override operator fun compareTo(other: Path): Int
+//
+//  /**
+//   * Compares two abstract files/directories lexicographically.
+//   *
+//   * @see toString
+//   */
+//  operator fun compareTo(other: String): Int
+//
+//  /**
+//   * Tests this file or directory for equality with the given object.
+//   *
+//   * @see Path.equals for more details
+//   */
+//  override fun equals(other: Any?): Boolean
+//
+//  /**
+//   * Computes a hash code for this file or directory.
+//   *
+//   * @see Path.hashCode for more details
+//   */
+//  override fun hashCode(): Int
+//
+//  /**
+//   * Returns the string representation of this file or directory.
+//   *
+//   * @see Path.hashCode for more details
+//   */
+//  override fun toString(): String
+//}
+//
+///**
+// * Get the path based on the path string.
+// *
+// * @param first the path string or initial part of the path char sequence
+// * @param more additional char sequence to be joined to form the path
+// */
+//expect fun Path(first: CharSequence, vararg more: CharSequence): Path
+//
+///**
+// * Convert [CharSequence] to [Path].
+// *
+// * @param more additional char sequence to be joined to form the path
+// */
+//inline fun CharSequence.asPath(vararg more: CharSequence): Path = Path(this, *more)

@@ -14,17 +14,31 @@ private fun constructMessage(path: Path?, other: Path?, reason: String?): String
 }
 
 /**
- * Signals that an I/O exception of some sort has occurred. This
+ * Signals that an I/O exception to some sort has occurred. This
  * class is the general class of exceptions produced by failed or
  * interrupted I/O operations.
  */
-open class IOException(message: String?) : Exception(message)
+expect open class IOException(message: String?) : Exception
+
+/**
+ * Checked exception thrown when an attempt is made to invoke or complete an I/O operation upon
+ * channel that is closed, or at least closed to that operation.  That this exception is thrown
+ * does not necessarily imply that the channel is completely closed. A socket channel whose write
+ * half has been shut down, for example, may still be open for reading.
+ */
+open class ClosedChannelException : Exception()
+
+/**
+ * Channel is empty exception.
+ */
+open class ChannelEmptyException(message: String? = null) : Exception(message)
 
 /**
  * A base exception class for file path system exceptions.
  *
  * @property path the file path on which the failed operation was performed.
- * @property other the second file path involved in the operation, if any (for example, the target of a copy or move)
+ * @property other the second file path involved in the operation, if
+ *   any (for example, the target of a copy or move)
  * @property reason the description of the error
  */
 open class FileSystemException(
@@ -39,11 +53,34 @@ open class FileSystemException(
 class PathAlreadyExistsException(
   path: Path,
   other: Path? = null,
-  reason: String? = null,
+  reason: String? = "The path already exists!",
 ) : FileSystemException(path, other, reason)
 
 /**
- * An exception class which is used when we have not enough access for some operation.
+ * The parent directories of the given [path] does not exist.
+ */
+class ParentDirectoryNotExistsException(path: Path) :
+  FileSystemException(path, reason = "The parent directories has not been created!")
+
+/**
+ * An exception when what is needed is a directory instead of a file.
+ */
+class PathExistsAndIsNotDirectoryException(path: Path) :
+  FileSystemException(path, reason = "The path already exists, and it is a file and not a directory!")
+
+/**
+ * An exception when what is needed is a file instead of a directory.
+ */
+class PathExistsAndIsNotFileException(path: Path) :
+  FileSystemException(path, reason = "The path already exists, and it is a directory and not a file!")
+
+/**
+ * When a "hard link" already exists for a file [path].
+ */
+class LinkAlreadyExistsException(path: Path) : FileSystemException(path)
+
+/**
+ * An exception class which is used when we have not enough accessed for some operation.
  */
 class AccessDeniedException(
   path: Path,
@@ -52,9 +89,9 @@ class AccessDeniedException(
 ) : FileSystemException(path, other, reason)
 
 /**
- * An exception class which is used when file path to copy does not exist.
+ * An exception class which is used when path does not exist.
  */
-class NoSuchFileException(
+class NoSuchPathException(
   path: Path,
   other: Path? = null,
   reason: String? = null,
@@ -67,6 +104,11 @@ class NoSuchFileException(
 class DirectoryNotEmptyException(dir: Path?) : FileSystemException(dir)
 
 /**
+ * Checked exception thrown when a file system operation fails because a group is not empty.
+ */
+class GroupNotEmptyException(group: PathGroup?) : FileSystemException(group)
+
+/**
  * An exception indicates that the [path] is illegal.
  */
 class IllegalPathException(
@@ -75,7 +117,7 @@ class IllegalPathException(
 ) : FileSystemException(
   path,
   reason = buildString {
-    append("Path '$path' is illegal")
+    append("Path is illegal")
     if (message.isNullOrEmpty().not()) {
       append(',')
       append(message)

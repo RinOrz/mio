@@ -3,12 +3,12 @@ package com.meowool.mio
 /**
  * Throws an [IllegalPathException] if this path is not exists. Otherwise returns itself.
  *
- * @param followLinks see [Path.notExists]
+ * @param followLinks see [IPath.notExists]
  */
-inline fun Path.requireExists(
+inline fun IPath.requireExists(
   followLinks: Boolean = true,
   lazyMessage: () -> Any = { "because $this does not exists." }
-): Path {
+): IPath {
   if (exists(followLinks).not()) {
     val message = lazyMessage()
     throw IllegalPathException(this, message.toString())
@@ -19,12 +19,12 @@ inline fun Path.requireExists(
 /**
  * Throws an [IllegalPathException] if this path is already exists. Otherwise returns itself.
  *
- * @param followLinks see [Path.notExists]
+ * @param followLinks see [IPath.notExists]
  */
-inline fun Path.requireNotExists(
+inline fun IPath.requireNotExists(
   followLinks: Boolean = true,
   lazyMessage: () -> Any = { "because $this already exists." }
-): Path {
+): IPath {
   if (notExists(followLinks).not()) {
     val message = lazyMessage()
     throw IllegalPathException(this, message.toString())
@@ -35,11 +35,11 @@ inline fun Path.requireNotExists(
 /**
  * Throws an [IllegalPathException] if this path is a file. Otherwise returns itself.
  *
- * @see Path.isDirectory
+ * @see IPath.isDirectory
  */
-inline fun Path.requireDirectory(
+inline fun IPath.requireDirectory(
   lazyMessage: () -> Any = { "because $this is not a directory." }
-): Path {
+): IPath {
   if (isDirectory.not()) {
     val message = lazyMessage()
     throw IllegalPathException(this, message.toString())
@@ -50,11 +50,11 @@ inline fun Path.requireDirectory(
 /**
  * Throws an [IllegalPathException] if this path is a directory. Otherwise returns itself.
  *
- * @see Path.isDirectory
+ * @see IPath.isDirectory
  */
-inline fun Path.requireRegularFile(
+inline fun IPath.requireRegularFile(
   lazyMessage: () -> Any = { "because $this is not a file." }
-): Path {
+): IPath {
   if (isRegularFile.not()) {
     val message = lazyMessage()
     throw IllegalPathException(this, message.toString())

@@ -2,91 +2,148 @@
 
 package com.meowool.mio
 
-import com.meowool.mio.internal.FilePath
-import com.meowool.mio.internal.RealPath
+import com.meowool.mio.internal.IoFile
+import com.meowool.mio.internal.NioPath
+import com.meowool.mio.internal.DefaultPath
+import com.meowool.mio.internal.DefaultPathLegacy
+import com.meowool.mio.internal.IoFileBackend
+import com.meowool.mio.internal.NioPathBackend
+import com.meowool.mio.internal.backport
 import com.meowool.sweekt.cast
-import com.meowool.sweekt.safeCast
-import java.io.File
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.Paths
 
 typealias NioPath = java.nio.file.Path
 
 /**
- * Get the path site based on the path string.
+ * Returns the path based on the path char sequence.
  *
- * @param first the path string or initial part of the path string
- * @param more additional strings to be joined to form the path string
+ * @param first the path char sequence or initial part of the path
+ * @param more additional char sequence to be joined to form the path
  */
-actual fun Path(first: String, vararg more: String): Path = runCatching {
-  RealPath(Paths.get(first, *more))
-}.getOrElse {
-  FilePath(if (more.isEmpty()) File(first) else File(first, more.joinToString(SystemSeparator)))
+actual fun Path(first: CharSequence, vararg more: CharSequence): Path = backport(
+  legacy = { Path(IoFile(first, *more)) },
+  modern = { Path(NioPath(first, *more)) }
+)
+
+/**
+ * Get the path based on the uri.
+ *
+ * @param uri the URI to convert.
+ */
+fun Path(uri: URI): Path = backport(
+  legacy = { Path(IoFile(uri)) },
+  modern = { Path(Paths.get(uri)) }
+)
+
+/**
+ * Get the MIO path based on the [NioPath].
+ *
+ * @param nioPath the NIO Path to convert.
+ */
+fun Path(nioPath: NioPath): Path = when {
+  Files.isDirectory(nioPath) -> Directory(nioPath)
+  Files.isRegularFile(nioPath) -> File(nioPath)
+  // May not have been created yet
+  else -> DefaultPath(nioPath)
 }
 
 /**
- * Get the path site based on the path string.
+ * Get the MIO path based on the [IoFile].
  *
- * @param uri the URI to convert.
- *
- * @see Paths.get
+ * @param ioFile the IO File to convert.
  */
-fun Path(uri: URI): Path = runCatching {
-  Paths.get(uri).toMioPath()
-}.getOrElse {
-  File(uri).toMioPath()
+fun Path(ioFile: IoFile): Path = when {
+  ioFile.isDirectory -> Directory(ioFile)
+  ioFile.isFile -> File(ioFile)
+  // May not have been created yet
+  else -> DefaultPathLegacy(ioFile)
 }
 
 /**
  * Convert [Path] to [URI].
- *
- * @see Path
  */
-fun Path.toURI(): URI = runCatching {
-  this.toNioPath().toUri()
-}.getOrElse {
-  this.toFile().toURI()
-}
+fun Path.toURI(): URI = backport(
+  legacy = { this.toIoFile().toURI() },
+  modern = { this.toNioPath().toUri() }
+)
 
 /**
- * Convert [Path] to [File].
- *
- * @see Path
+ * Convert [Path] to [IoFile].
  */
-fun Path.toFile(): File = this.safeCast<FilePath>()?.file
-  ?: runCatching { this.cast<RealPath>().path.toFile() }.getOrElse { File(this.toString()) }
+fun Path.toIoFile(): IoFile = runCatching {
+  backport(
+    legacy = { this.cast<IoFileBackend>().ioFile },
+    modern = { this.toNioPath().toFile() }
+  )
+}.getOrElse { IoFile(this.toString()) }
 
 /**
  * Convert [Path] to [NioPath].
- *
- * @see Path
  */
-fun Path.toNioPath(): NioPath = this.safeCast<RealPath>()?.path ?: Paths.get(this.toString())
+fun Path.toNioPath(): NioPath = runCatching {
+  backport(
+    legacy = { this.toIoFile().toPath() },
+    modern = { this.cast<NioPathBackend>().nioPath }
+  )
+}.getOrElse { Paths.get(this.toString()) }
 
 /**
  * Convert [URI] to [Path].
  */
-inline fun URI.toPath(): Path = Path(this)
+inline fun URI.toMioPath(): Path = Path(this)
 
 /**
  * Convert [NioPath] to [Path].
  */
-inline fun NioPath.toMioPath(): Path = RealPath(this)
+inline fun NioPath.toMioPath(): Path = Path(this)
 
 /**
- * Convert [File] to [Path].
+ * Convert [IoFile] to [Path].
  */
-fun File.toMioPath(): Path = runCatching {
-  toPath().toMioPath()
-}.getOrElse {
-  FilePath(this)
-}
+inline fun IoFile.toMioPath(): Path = Path(this)
 
 /**
  * Convert all [NioPath] to [Path]s.
  *
  * @see java.nio.file.Path.toMioPath
  */
-fun Iterable<NioPath>.mapToPaths(): List<Path> = map { it.toMioPath() }
-fun Sequence<NioPath>.mapToPaths(): Sequence<Path> = map { it.toMioPath() }
-fun Array<NioPath>.mapToPaths(): List<Path> = map { it.toMioPath() }
+fun Iterable<NioPath>.mapToMioPaths(): List<Path> = this.map(::Path)
+
+/**
+ * Convert all [NioPath] to [Path]s.
+ *
+ * @see java.nio.file.Path.toMioPath
+ */
+fun Sequence<NioPath>.mapToMioPaths(): Sequence<Path> = this.map(::Path)
+
+/**
+ * Convert all [NioPath] to [Path]s.
+ *
+ * @see java.nio.file.Path.toMioPath
+ */
+fun Array<NioPath>.mapToMioPaths(): List<Path> = this.map(::Path)
+
+/**
+ * Convert all [IoFile] to [Path]s.
+ *
+ * @see java.io.File.toMioPath
+ */
+@JvmName("mapIoFilesToPaths")
+fun Iterable<IoFile>.mapToMioPaths(): List<Path> = this.map(::Path)
+
+/**
+ * Convert all [IoFile] to [Path]s.
+ *
+ * @see java.io.File.toMioPath
+ */
+@JvmName("mapIoFilesToPaths")
+fun Sequence<IoFile>.mapToMioPaths(): Sequence<Path> = this.map(::Path)
+
+/**
+ * Convert all [IoFile] to [Path]s.
+ *
+ * @see java.io.File.toMioPath
+ */
+fun Array<IoFile>.mapToMioPaths(): List<Path> = this.map(::Path)

@@ -7,7 +7,7 @@ package com.meowool.mio
  *
  * @param value mime type values, [for more details](https://en.wikipedia.org/wiki/Media_type).
  *
- * @see Path.contentType
+ * @see IPath.contentType
  *
  * @author 凛 (https://github.com/RinOrz)
  */
@@ -15,7 +15,7 @@ sealed class MediaType(val value: List<String>) {
   constructor(vararg values: String) : this(values.toList())
 
   /**
-   * Returns `true` if the given [type] belongs to the this media type.
+   * Returns `true` if the given [type] belongs to the media type.
    *
    * For code example:
    * ```
@@ -29,7 +29,7 @@ sealed class MediaType(val value: List<String>) {
    * }
    * ```
    *
-   * @see Path.contentType
+   * @see IPath.contentType
    */
   operator fun contains(type: String) : Boolean = value.any {
     if (it.endsWith("*")) type.startsWith(it.removeSuffix("*")) else it == type
@@ -166,11 +166,11 @@ sealed class MediaType(val value: List<String>) {
 }
 
 /**
- * Returns `true` if the content type of this path is a archive file.
+ * Returns `true` if the content type of this path is an archive file.
  */
 val Path.isArchiveFile get() = contentType in MediaType.Archive
 
 /**
- * Returns `true` if the content type of this path is a apk file.
+ * Returns `true` if the content type of this path is an apk file.
  */
 val Path.isApkFile get() = contentType in MediaType.Apk

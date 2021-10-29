@@ -21,13 +21,10 @@ internal abstract class StreamFlow<T> : Flow<T> {
   @InternalCoroutinesApi
   @Suppress("ConvertTryFinallyToUseCall")
   override suspend fun collect(collector: FlowCollector<T>) {
-    val stream = getStream()
-    try {
-      for (value in stream.iterator()) {
+    getStream().use {
+      for (value in it.iterator()) {
         collector.emit(value)
       }
-    } finally {
-      stream.close()
     }
   }
 

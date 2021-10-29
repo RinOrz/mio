@@ -1,4 +1,14 @@
-# Project exclude paths
+# IntelliJ project files
+*.iml
+/.idea/**
+!/.idea/codeStyles/
+!/.idea/codeStyles/**
+!/.idea/.gitignore
+!/.idea/inspectionProfiles/
+!/.idea/inspectionProfiles/**
+
+# Gradle exclude paths
 /.gradle/
-/core/build/
-/sample/build/
+/build/
+.dependency-mapper/
+local.properties
