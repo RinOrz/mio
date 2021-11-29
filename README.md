@@ -1,4 +1,4 @@
-# Meowool (Multiplatform) I/O [ 🚧 Work in progress ⛏👷🔧️ 🚧 ]
+# Meowool (Multiplatform) I/O
 
 <!--description start-->
 
